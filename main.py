@@ -1,80 +1,78 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
+import matplotlib.pyplot as plt
 from torch import nn
 from sklearn.model_selection import train_test_split
-from pathlib import Path
 
-
-torch.manual_seed(42)
-weights = 0.7
+# create data ,weights and bias
+weight = 0.7
 bias = 0.3
-X = torch.arange(0, 1, 0.02)
-y = torch.arange(0, 1, 0.02)
+start = 0
+end = 1
+step = 0.02
+# set manual seed
+torch.manual_seed(42)
+X = torch.arange(start, end, step).unsqueeze(dim=1)
+y = weight * X + bias
+# print(X), print(y)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+plt.scatter(X, y, cmap=plt.cm.RdYlBu)
+plt.show()
 
 
-class LinearRegressionModel(nn.Module):
+def plot_predictions(train_data=X_train, train_labels=y_train,
+                     test_data=X_test, test_labels=y_test, Predictions=None):
+    plt.figure(figsize=(10, 7))
+    plt.scatter(train_data, train_labels, c='b', s=4, label='Training Data')
+    plt.scatter(test_data, test_labels, c='g', s=4, label='Testing Data')
+    plt.legend()
+    plt.show()
+    if Predictions is not None:
+        plt.scatter(test_data, Predictions, c='r', s=4, label='Predictions')
+        plt.show()
+
+
+# print(plot_predictions(X_train, y_train, X_test, y_test))
+"""Create a Linear Model by Subclassing nn.module"""
+
+
+class LinearRegressionV2(nn.Module):
     def __init__(self):
         super().__init__()
-        self.weight = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float32))
-        self.bias = nn.Parameter(torch.randn(1, requires_grad=True, dtype=torch.float32))
+        self.linear_layer = nn.Sequential(
+            nn.Linear(in_features=1, out_features=10),
+            nn.ReLU(),
+            nn.Linear(in_features=10, out_features=10),
+            nn.ReLU(),
+            nn.Linear(in_features=10, out_features=1))
 
-    def forward(self, x: torch.tensor):
-        return self.weight * x + self.bias
+    def forward(self, x: torch.Tensor):
+        return self.linear_layer(x)
 
 
-model_0 = LinearRegressionModel()
-# print(model_0.state_dict())
-
-with torch.inference_mode():
-    y_pred = model_0(X_test)
-
-print(y_pred)
-
+model_1 = LinearRegressionV2()
+# print(model_1.state_dict())
 loss_fn = nn.L1Loss()
-# optimizer
-optimizer = torch.optim.SGD(params=model_0.parameters(), lr=0.01)
-# Training Loop
+optimizers = torch.optim.SGD(params=model_1.parameters(), lr=0.01)
 
-
-epochs = 200
+""" Training Loop"""
+epochs = 300
 epoch_count = []
 loss_values = []
 test_loss_values = []
-
 for epochs in range(epochs):
-    model_0.train()
-    y_pred = model_0(X_train)
+    model_1.train()
+    y_pred = model_1(X_train)
     loss = loss_fn(y_pred, y_train)
-    optimizer.zero_grad()
+    optimizers.zero_grad()
     loss.backward()
-    optimizer.step()
-    model_0.eval()
-    # print('Loss: ', loss)
-    # print(model_0.state_dict())
+    optimizers.step()
+    model_1.eval()
     with torch.inference_mode():
-        test_prediction = model_0(X_test)
-        test_loss = loss_fn(test_prediction, y_test)
-
-    if epochs % 10 == 0:
-        epoch_count.append(epochs)
-        loss_values.append(loss)
-        test_loss_values.append(test_loss)
-        print(f"Epoch:{epochs}|Loss:{loss}|Test_loss:{test_loss}",model_0.state_dict())
-
-    plt.plot(epoch_count,  np.array(torch.tensor(loss_values).numpy()), label='Train Loss')
-    plt.plot(epoch_count,  test_loss_values, label='Test Loss')
-    plt.title('Training and Loss Curve')
-    plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend()
-
-    model_path = Path('Models')
-    model_path.mkdir(parents=True,exist_ok=True)
-    model_name = 'Regression Model.pth'
-    model_save_path = model_path/model_name
-
-    print(model_save_path)
-    torch.save(obj=model_0.state_dict(),f=model_save_path)
-
+        test_pred = model_1(X_test)
+        test_loss = loss_fn(test_pred, y_test)
+        if epochs % 10 == 0:
+            epoch_count.append(epochs)
+            loss_values.append(loss)
+            test_loss_values.append(test_loss)
+            print(f"Epoch:{epochs}|Loss:{loss}|Test_loss:{test_loss} ")
+        # print(plot_predictions(Predictions=y_pred))
